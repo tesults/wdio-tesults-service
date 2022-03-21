@@ -97,6 +97,7 @@ module.exports = class TesultsWorkerService {
             _returned: result,
             params: this.testParams()
         }
+        testCase["_Device/Browser Version"] = browser.capabilities.browserVersion
         let files = testFiles(this.options.files, test.parent, test.title)
         if (files.length > 0) {
             testCase.files = files
@@ -250,14 +251,16 @@ module.exports = class TesultsWorkerService {
                 newData.steps = [step]
             } else {
                 // deduplication start
-                let newDataStepsIndex = {}
+                // Removed due to user feedback - repeated steps should be permitted
+                // Note that removing deduplication will mean that on retries, steps will be repeated in output
+                /*let newDataStepsIndex = {}
                 for (let i = 0; i < newData.steps.length; i++) {
                     let newDataStep = newData.steps[i]
                     newDataStepsIndex[newDataStep.name] = i
                 }
                 if (newDataStepsIndex[step.name] !== undefined) {
                     newData.steps.splice(newDataStepsIndex[step.name])
-                }
+                }*/
                 // deduplication end
                 newData.steps.push(step)
             }
