@@ -1,0 +1,23 @@
+{
+  "name": "wdio-tesults-service",
+  "version": "1.0.0",
+  "description": "Webdriver.IO Tesults Service",
+  "main": "wdio-tesults-service.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "wdio-plugin",
+    "wdio-service",
+    "wdio",
+    "webdriverio",
+    "tesults",
+    "test",
+    "reporting"
+  ],
+  "author": "Tesults",
+  "license": "MIT",
+  "dependencies": {
+    "tesults": "^1.1.3"
+  }
+}
