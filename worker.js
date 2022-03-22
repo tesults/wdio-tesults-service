@@ -2,6 +2,7 @@ const fs = require('fs')
 const path = require('path')
 const testHash = require('./testHash')
 const testFiles = require('./testFiles')
+const shared = require('./shared')
 
 /**
  * supplemental data structure
@@ -137,6 +138,7 @@ module.exports = class TesultsWorkerService {
         this.cases.push(testCase)
     }
 
+   
     /**
      * Gets executed after all tests are done. You still have access to all global variables from
      * the test.
@@ -150,7 +152,7 @@ module.exports = class TesultsWorkerService {
         }
         try {
             let fileContents = JSON.stringify(this.cases)
-            fs.writeFileSync(path.join("temp", browser.sessionId + ".json"), fileContents)
+            fs.writeFileSync(path.join(shared.temp, browser.sessionId + ".json"), fileContents)
         } catch (err) {
             console.log("wdio-tesults-service error saving test cases: " + err)
         }

@@ -3,7 +3,7 @@ const path = require('path')
 const tesults = require('tesults')
 const testHash = require('./testHash')
 const testFiles = require('./testFiles')
-const temp = "temp"
+const shared = require("./shared")
 
 module.exports = class TesultsLauncherService {
     /**
@@ -29,12 +29,13 @@ module.exports = class TesultsLauncherService {
     async onPrepare(config, capabilities) {
         // Before all workers launch
         try {
-            fs.rmSync(temp, {recursive: true})
+            fs.rmSync(shared.temp, {recursive: true})
         } catch (err) {
             console.log("wdio-tesults-service error removing temp directory: " + err)
         }
         try {
-            fs.mkdirSync(temp)
+            fs.mkdirSync(shared.temp)
+            fs.writeFileSync(path.join(shared.temp, "README.txt"), "This directory is created by wdio-tesults-service and can be safely deleted. The directory will be automatically generated again when required.")
         } catch (err) {
             console.log("wdio-tesults-service error creating temp directory: " + err)
         }
@@ -47,11 +48,17 @@ module.exports = class TesultsLauncherService {
         }
         let cases = []
         let casesRetries = {}
-        let files = fs.readdirSync(temp)
+        let files = fs.readdirSync(shared.temp)
         for (let i = 0; i < files.length; i++) {
             let file = files[i]
-            let casesString = fs.readFileSync(path.join(temp, file), {encoding: 'utf8'})
-            let casesArray = JSON.parse(casesString)
+            let casesString = ""
+            let casesArray = []
+            try {
+                casesString = fs.readFileSync(path.join(shared.temp, file), {encoding: 'utf8'})
+                casesArray = JSON.parse(casesString)
+            } catch (err) {
+                continue
+            }            
             if (Array.isArray(casesArray)) {
                 for (let j = 0; j < casesArray.length; j++) {
                     let testCase = casesArray[j]
