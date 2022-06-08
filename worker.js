@@ -98,6 +98,11 @@ module.exports = class TesultsWorkerService {
             _returned: result,
             params: this.testParams()
         }
+        if (test.title === undefined && test.parent === undefined
+            && test.description !== undefined && test.fullName !== undefined) { // Jasmine
+            testCase.name = test.description
+            testCase.suite = test.fullName.replace(test.description, "").trim()
+        }
         testCase["_Device/Browser Version"] = browser.capabilities.browserVersion
         let files = testFiles(this.options.files, test.parent, test.title)
         if (files.length > 0) {
