@@ -109,6 +109,11 @@ module.exports = class TesultsLauncherService {
             target: this.options.target,
             results: {
                 cases: cases
+            },
+            metadata: {
+                integration_name: "wdio-tesults-service",
+                integration_version: "1.2.0",
+                test_framework: "wdio"
             }
         }
 

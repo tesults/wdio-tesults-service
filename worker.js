@@ -45,12 +45,143 @@ module.exports = class TesultsWorkerService {
         }
     }
 
-    testParams () {
-        return {
-            "Device/Browser": browser.capabilities.browserName
+    testParams (pickle) {
+        let params =  {
+            "Device/Browser": browser.capabilities.browserName,
         }
+        if (pickle !== undefined) {
+            params["Example Id"] = pickle.id
+        }
+        return params
     }
 
+    /**
+     *
+     * Runs before a Cucumber Scenario.
+     * @param {ITestCaseHookParameter} world    world object containing information on pickle and test step
+     * @param {Object}                 context  Cucumber World object
+     */
+     beforeScenario (world, context) {
+        let gherkinDocument = world.gherkinDocument
+        if (gherkinDocument === undefined) {
+            gherkinDocument = {}
+        }
+
+        let pickle = world.pickle
+        if (pickle === undefined) {
+            pickle = {}
+        }
+
+        let testCase = {suite: gherkinDocument.feature === undefined ? undefined : gherkinDocument.feature.name, name: pickle.name, params: this.testParams(pickle)}
+        if (supplemental[browser.sessionId] === undefined) {
+            supplemental[browser.sessionId] = {current: testHash(testCase)}
+        } else {
+            let data = supplemental[browser.sessionId]
+            data.current = testHash(testCase)
+            supplemental[browser.sessionId] = data
+        }
+    }
+    
+    /**
+     *
+     * Runs after a Cucumber Scenario.
+     * @param {ITestCaseHookParameter} world            world object containing information on pickle and test step
+     * @param {Object}                 result           results object containing scenario results `{passed: boolean, error: string, duration: number}`
+     * @param {boolean}                result.passed    true if scenario has passed
+     * @param {string}                 result.error     error stack if scenario failed
+     * @param {number}                 result.duration  duration of scenario in milliseconds
+     * @param {Object}                 context          Cucumber World object
+     */
+    afterScenario (world, result, context) {
+        if (this.disabled === true) {
+            return
+        }
+
+        let gherkinDocument = world.gherkinDocument
+        if (gherkinDocument === undefined) {
+            gherkinDocument = {}
+        }
+
+        let pickle = world.pickle
+        if (pickle === undefined) {
+            pickle = {}
+        }
+
+        let now = Date.now()
+        let testCase = {
+            name: pickle.name,
+            suite: gherkinDocument.feature === undefined ? undefined : gherkinDocument.feature.name,
+            result: "unknown",
+            rawResult: world.result.status,
+            end: now,
+            params: this.testParams(pickle)
+        }
+
+        if (world.result.status === "PASSED") {
+            testCase.result = "pass"
+        }
+        if (world.result.status === "FAILED") {
+            testCase.result = "fail"
+        }
+
+        if (result.duration !== undefined) {
+            testCase.start = Math.trunc(now - (result.duration * 1000))
+            testCase.duration = Math.trunc((result.duration * 1000))
+        }
+
+        // Steps
+        let steps = []
+        if (pickle.steps !== undefined) {
+            if (Array.isArray(pickle.steps)) {
+                for (let i = 0; i < pickle.steps.length; i++) {
+                    let stepRaw = pickle.steps[i]
+                    let step = {
+                        name: stepRaw.keyword,
+                        desc: stepRaw.text,
+                        result: (i === pickle.steps.length - 1) ? testCase.result : "pass"
+                    }
+                    steps.push(step)
+                }
+            }
+        }
+        if (steps.length > 0) {
+            testCase.steps = steps
+        }
+        
+        testCase["_Device/Browser Version"] = browser.capabilities.browserVersion
+        let files = testFiles(this.options.files, testCase.suite, testCase.name)
+        if (files.length > 0) {
+            testCase.files = files
+        }
+        if (result.passed !== true) {
+            testCase.reason = result.error
+        }
+        
+        // Supplemental fields
+        if (supplemental !== undefined) {
+            if (supplemental[browser.sessionId] !== undefined) {
+                let data = supplemental[browser.sessionId][testHash(testCase)]
+                if (data !== undefined) {
+                    if (data.desc !== undefined) {
+                        testCase.desc = data.desc
+                    }
+                    if (data.steps !== undefined) {
+                        testCase.steps = data.steps
+                    }
+                    if (data.files !== undefined) {
+                        testCase.files = data.files
+                    }
+                    Object.keys(data).forEach((key) => {
+                        if (key.startsWith("_")) {
+                            testCase[key] = data[key]
+                        }
+                    })
+                }
+            }
+        }
+        supplemental[browser.sessionId].current = undefined
+        this.cases.push(testCase)
+    }
     
 
     /**
