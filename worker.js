@@ -24,6 +24,7 @@ const shared = require('./shared')
  * }
  */
 let supplemental = {}
+let startTimes = {}
 
 module.exports = class TesultsWorkerService {
     /**
@@ -80,6 +81,8 @@ module.exports = class TesultsWorkerService {
             data.current = testHash(testCase)
             supplemental[browser.sessionId] = data
         }
+
+        startTimes[testHash(testCase)] = Date.now()
     }
     
     /**
@@ -125,8 +128,13 @@ module.exports = class TesultsWorkerService {
         }
 
         if (result.duration !== undefined) {
-            testCase.start = Math.trunc(now - (result.duration * 1000))
-            testCase.duration = Math.trunc((result.duration * 1000))
+            try {
+                const duration = Math.trunc(now - startTimes[testHash(testCase)])
+                testCase.start = now - duration
+                testCase.duration = duration
+            } catch (err) {
+                // Do not set start and duration in this case
+            }
         }
 
         // Steps

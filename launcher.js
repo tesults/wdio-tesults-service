@@ -112,7 +112,7 @@ module.exports = class TesultsLauncherService {
             },
             metadata: {
                 integration_name: "wdio-tesults-service",
-                integration_version: "1.2.0",
+                integration_version: "1.2.1",
                 test_framework: "wdio"
             }
         }
