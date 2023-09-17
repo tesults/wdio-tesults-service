@@ -199,6 +199,11 @@ module.exports = class TesultsWorkerService {
      */
     beforeTest (test, context) {
         let testCase = {suite: test.parent, name: test.title, params: this.testParams()}
+        if (test.title === undefined && test.parent === undefined
+            && test.description !== undefined && test.fullName !== undefined) { // Jasmine
+            testCase.name = test.description
+            testCase.suite = test.fullName.replace(test.description, "").trim()
+        }
         if (supplemental[browser.sessionId] === undefined) {
             supplemental[browser.sessionId] = {current: testHash(testCase)}
         } else {
