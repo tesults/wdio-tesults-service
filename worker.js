@@ -247,6 +247,14 @@ module.exports = class TesultsWorkerService {
             testCase.name = test.description
             testCase.suite = test.fullName.replace(test.description, "").trim()
         }
+        if (test.failedExpectations !== undefined) { // Jasmine
+            if (Array.isArray(test.failedExpectations)) {
+                if (test.failedExpectations.length > 0) {
+                    testCase.result = "fail"
+                    testCase.reason = test.failedExpectations[0]
+                }
+            }
+        }
         testCase["_Device/Browser Version"] = browser.capabilities.browserVersion
         let files = testFiles(this.options.files, test.parent, test.title)
         if (files.length > 0) {
