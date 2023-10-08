@@ -261,7 +261,7 @@ module.exports = class TesultsWorkerService {
             testCase.files = files
         }
         if (passed !== true) {
-            if (error !== undefined) {
+            if (error !== undefined && test.title !== undefined) { // Mocha only
                 testCase.reason = error
             }
         }
@@ -303,7 +303,19 @@ module.exports = class TesultsWorkerService {
      * @param {Array.<Object>} capabilities list of capabilities details
      * @param {Array.<String>} specs List of spec file paths that ran
      */
-    after (result, capabilities, specs) {
+   /*after (result, capabilities, specs) {
+        if (this.disabled === true) {
+            return
+        }
+        try {
+            let fileContents = JSON.stringify(this.cases)
+            fs.writeFileSync(path.join(shared.temp, browser.sessionId + ".json"), fileContents)
+        } catch (err) {
+            console.log("wdio-tesults-service error saving test cases: " + err)
+        }
+    }*/
+    
+    afterSession (config, capabilities, specs) {
         if (this.disabled === true) {
             return
         }
