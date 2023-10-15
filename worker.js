@@ -303,7 +303,7 @@ module.exports = class TesultsWorkerService {
      * @param {Array.<Object>} capabilities list of capabilities details
      * @param {Array.<String>} specs List of spec file paths that ran
      */
-   /*after (result, capabilities, specs) {
+    after (result, capabilities, specs) {
         if (this.disabled === true) {
             return
         }
@@ -313,7 +313,7 @@ module.exports = class TesultsWorkerService {
         } catch (err) {
             console.log("wdio-tesults-service error saving test cases: " + err)
         }
-    }*/
+    }
     
     afterSession (config, capabilities, specs) {
         if (this.disabled === true) {
