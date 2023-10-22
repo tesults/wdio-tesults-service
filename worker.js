@@ -227,6 +227,17 @@ module.exports = class TesultsWorkerService {
         if (this.disabled === true) {
             return
         }
+        if (error !== undefined) {
+            try {
+                error = {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                }
+            } catch (err) {
+                // Swallow
+            }
+        }
         let now = Date.now()
         let testCase = {
             name: test.title,
