@@ -5,6 +5,14 @@ const testFiles = require('./testFiles')
 const shared = require('./shared')
 
 /**
+ * Helper function to get the browser/driver object
+ * Supports both browser (legacy WDIO) and driver (modern WDIO with Appium)
+ */
+function getBrowserDriver() {
+    return typeof driver !== 'undefined' ? driver : browser;
+}
+
+/**
  * supplemental data structure
  * 
  * {
@@ -47,8 +55,10 @@ module.exports = class TesultsWorkerService {
     }
 
     testParams (pickle) {
+        // Support both browser (legacy) and driver (modern WDIO with Appium)
+        const caps = getBrowserDriver().capabilities;
         let params =  {
-            "Device/Browser": browser.capabilities.browserName,
+            "Device/Browser": caps.browserName || caps.platformName,
         }
         if (pickle !== undefined) {
             params["Example Id"] = pickle.id
@@ -74,12 +84,13 @@ module.exports = class TesultsWorkerService {
         }
 
         let testCase = {suite: gherkinDocument.feature === undefined ? undefined : gherkinDocument.feature.name, name: pickle.name, params: this.testParams(pickle)}
-        if (supplemental[browser.sessionId] === undefined) {
-            supplemental[browser.sessionId] = {current: testHash(testCase)}
+        const sessionId = getBrowserDriver().sessionId;
+        if (supplemental[sessionId] === undefined) {
+            supplemental[sessionId] = {current: testHash(testCase)}
         } else {
-            let data = supplemental[browser.sessionId]
+            let data = supplemental[sessionId]
             data.current = testHash(testCase)
-            supplemental[browser.sessionId] = data
+            supplemental[sessionId] = data
         }
 
         startTimes[testHash(testCase)] = Date.now()
@@ -156,7 +167,10 @@ module.exports = class TesultsWorkerService {
             testCase.steps = steps
         }
         
-        testCase["_Device/Browser Version"] = browser.capabilities.browserVersion
+        // Support both browser (legacy) and driver (modern WDIO with Appium)
+        const caps = getBrowserDriver().capabilities;
+        const sessionId = getBrowserDriver().sessionId;
+        testCase["_Device/Browser Version"] = caps.browserVersion || caps.platformVersion || caps['appium:platformVersion']
         let files = testFiles(this.options.files, testCase.suite, testCase.name)
         if (files.length > 0) {
             testCase.files = files
@@ -164,11 +178,11 @@ module.exports = class TesultsWorkerService {
         if (result.passed !== true) {
             testCase.reason = result.error
         }
-        
+
         // Supplemental fields
         if (supplemental !== undefined) {
-            if (supplemental[browser.sessionId] !== undefined) {
-                let data = supplemental[browser.sessionId][testHash(testCase)]
+            if (supplemental[sessionId] !== undefined) {
+                let data = supplemental[sessionId][testHash(testCase)]
                 if (data !== undefined) {
                     if (data.desc !== undefined) {
                         testCase.desc = data.desc
@@ -187,7 +201,7 @@ module.exports = class TesultsWorkerService {
                 }
             }
         }
-        supplemental[browser.sessionId].current = undefined
+        supplemental[sessionId].current = undefined
         this.cases.push(testCase)
     }
     
@@ -204,12 +218,13 @@ module.exports = class TesultsWorkerService {
             testCase.name = test.description
             testCase.suite = test.fullName.replace(test.description, "").trim()
         }
-        if (supplemental[browser.sessionId] === undefined) {
-            supplemental[browser.sessionId] = {current: testHash(testCase)}
+        const sessionId = getBrowserDriver().sessionId;
+        if (supplemental[sessionId] === undefined) {
+            supplemental[sessionId] = {current: testHash(testCase)}
         } else {
-            let data = supplemental[browser.sessionId]
+            let data = supplemental[sessionId]
             data.current = testHash(testCase)
-            supplemental[browser.sessionId] = data
+            supplemental[sessionId] = data
         }
     }
 
@@ -266,7 +281,10 @@ module.exports = class TesultsWorkerService {
                 }
             }
         }
-        testCase["_Device/Browser Version"] = browser.capabilities.browserVersion
+        // Support both browser (legacy) and driver (modern WDIO with Appium)
+        const caps = getBrowserDriver().capabilities;
+        const sessionId = getBrowserDriver().sessionId;
+        testCase["_Device/Browser Version"] = caps.browserVersion || caps.platformVersion || caps['appium:platformVersion']
         let files = testFiles(this.options.files, test.parent, test.title)
         if (files.length > 0) {
             testCase.files = files
@@ -279,11 +297,11 @@ module.exports = class TesultsWorkerService {
         if (test.data !== undefined) {
             testCase["_wdio_data"] = test.data
         }
-        
+
         // Supplemental fields
         if (supplemental !== undefined) {
-            if (supplemental[browser.sessionId] !== undefined) {
-                let data = supplemental[browser.sessionId][testHash(testCase)]
+            if (supplemental[sessionId] !== undefined) {
+                let data = supplemental[sessionId][testHash(testCase)]
                 if (data !== undefined) {
                     if (data.desc !== undefined) {
                         testCase.desc = data.desc
@@ -302,11 +320,11 @@ module.exports = class TesultsWorkerService {
                 }
             }
         }
-        supplemental[browser.sessionId].current = undefined
+        supplemental[sessionId].current = undefined
         this.cases.push(testCase)
     }
 
-   
+
     /**
      * Gets executed after all tests are done. You still have access to all global variables from
      * the test.
@@ -318,9 +336,17 @@ module.exports = class TesultsWorkerService {
         if (this.disabled === true) {
             return
         }
+        if (this.cases.length === 0) {
+            return
+        }
         try {
+            const browserDriver = typeof driver !== 'undefined' ? driver : (typeof browser !== 'undefined' ? browser : null);
+            if (!browserDriver || !browserDriver.sessionId) {
+                return
+            }
+            const sessionId = browserDriver.sessionId;
             let fileContents = JSON.stringify(this.cases)
-            fs.writeFileSync(path.join(shared.temp, browser.sessionId + ".json"), fileContents)
+            fs.writeFileSync(path.join(shared.temp, sessionId + ".json"), fileContents)
         } catch (err) {
             console.log("wdio-tesults-service error saving test cases: " + err)
         }
@@ -330,9 +356,17 @@ module.exports = class TesultsWorkerService {
         if (this.disabled === true) {
             return
         }
+        if (this.cases.length === 0) {
+            return
+        }
         try {
+            const browserDriver = typeof driver !== 'undefined' ? driver : (typeof browser !== 'undefined' ? browser : null);
+            if (!browserDriver || !browserDriver.sessionId) {
+                return
+            }
+            const sessionId = browserDriver.sessionId;
             let fileContents = JSON.stringify(this.cases)
-            fs.writeFileSync(path.join(shared.temp, browser.sessionId + ".json"), fileContents)
+            fs.writeFileSync(path.join(shared.temp, sessionId + ".json"), fileContents)
         } catch (err) {
             console.log("wdio-tesults-service error saving test cases: " + err)
         }
@@ -345,14 +379,15 @@ module.exports = class TesultsWorkerService {
      * @returns supplementalData
      */
     static getSupplementalData () {
-        if (supplemental[browser.sessionId] === undefined) {
+        const sessionId = getBrowserDriver().sessionId;
+        if (supplemental[sessionId] === undefined) {
             return undefined
         }
-        let testCaseHash = supplemental[browser.sessionId].current
+        let testCaseHash = supplemental[sessionId].current
         if (testCaseHash === undefined) {
             return undefined
         }
-        return supplemental[browser.sessionId][testCaseHash]
+        return supplemental[sessionId][testCaseHash]
     }
 
     /**
@@ -361,14 +396,15 @@ module.exports = class TesultsWorkerService {
      * @returns void
      */
     static setSupplementalData (val) {
-        if (supplemental[browser.sessionId] === undefined) {
+        const sessionId = getBrowserDriver().sessionId;
+        if (supplemental[sessionId] === undefined) {
             return undefined
         }
-        let testCaseHash = supplemental[browser.sessionId].current
+        let testCaseHash = supplemental[sessionId].current
         if (testCaseHash === undefined) {
             return undefined
         }
-        supplemental[browser.sessionId][testCaseHash] = val
+        supplemental[sessionId][testCaseHash] = val
     }
 
     /**
