@@ -9,7 +9,13 @@ const shared = require('./shared')
  * Supports both browser (legacy WDIO) and driver (modern WDIO with Appium)
  */
 function getBrowserDriver() {
-    return typeof driver !== 'undefined' ? driver : browser;
+    if (typeof driver !== 'undefined') {
+        return driver;
+    }
+    if (typeof browser !== 'undefined') {
+        return browser;
+    }
+    return null;
 }
 
 /**
@@ -56,9 +62,11 @@ module.exports = class TesultsWorkerService {
 
     testParams (pickle) {
         // Support both browser (legacy) and driver (modern WDIO with Appium)
-        const caps = getBrowserDriver().capabilities;
-        let params =  {
-            "Device/Browser": caps.browserName || caps.platformName,
+        const browserDriver = getBrowserDriver();
+        let params = {}
+        if (browserDriver !== null && browserDriver.capabilities !== undefined) {
+            const caps = browserDriver.capabilities;
+            params["Device/Browser"] = caps.browserName || caps.platformName
         }
         if (pickle !== undefined) {
             params["Example Id"] = pickle.id
@@ -84,13 +92,16 @@ module.exports = class TesultsWorkerService {
         }
 
         let testCase = {suite: gherkinDocument.feature === undefined ? undefined : gherkinDocument.feature.name, name: pickle.name, params: this.testParams(pickle)}
-        const sessionId = getBrowserDriver().sessionId;
-        if (supplemental[sessionId] === undefined) {
-            supplemental[sessionId] = {current: testHash(testCase)}
-        } else {
-            let data = supplemental[sessionId]
-            data.current = testHash(testCase)
-            supplemental[sessionId] = data
+        const browserDriver = getBrowserDriver();
+        if (browserDriver !== null && browserDriver.sessionId !== undefined) {
+            const sessionId = browserDriver.sessionId;
+            if (supplemental[sessionId] === undefined) {
+                supplemental[sessionId] = {current: testHash(testCase)}
+            } else {
+                let data = supplemental[sessionId]
+                data.current = testHash(testCase)
+                supplemental[sessionId] = data
+            }
         }
 
         startTimes[testHash(testCase)] = Date.now()
@@ -126,16 +137,18 @@ module.exports = class TesultsWorkerService {
             name: pickle.name,
             suite: gherkinDocument.feature === undefined ? undefined : gherkinDocument.feature.name,
             result: "unknown",
-            rawResult: world.result.status,
+            rawResult: world.result !== undefined ? world.result.status : undefined,
             end: now,
             params: this.testParams(pickle)
         }
 
-        if (world.result.status === "PASSED") {
-            testCase.result = "pass"
-        }
-        if (world.result.status === "FAILED") {
-            testCase.result = "fail"
+        if (world.result !== undefined) {
+            if (world.result.status === "PASSED") {
+                testCase.result = "pass"
+            }
+            if (world.result.status === "FAILED") {
+                testCase.result = "fail"
+            }
         }
 
         if (result.duration !== undefined) {
@@ -154,23 +167,33 @@ module.exports = class TesultsWorkerService {
             if (Array.isArray(pickle.steps)) {
                 for (let i = 0; i < pickle.steps.length; i++) {
                     let stepRaw = pickle.steps[i]
-                    let step = {
-                        name: stepRaw.keyword,
-                        desc: stepRaw.text,
-                        result: (i === pickle.steps.length - 1) ? testCase.result : "pass"
+                    if (stepRaw !== undefined) {
+                        let step = {
+                            name: stepRaw.keyword,
+                            desc: stepRaw.text,
+                            result: (i === pickle.steps.length - 1) ? testCase.result : "pass"
+                        }
+                        steps.push(step)
                     }
-                    steps.push(step)
                 }
             }
         }
         if (steps.length > 0) {
             testCase.steps = steps
         }
-        
+
         // Support both browser (legacy) and driver (modern WDIO with Appium)
-        const caps = getBrowserDriver().capabilities;
-        const sessionId = getBrowserDriver().sessionId;
-        testCase["_Device/Browser Version"] = caps.browserVersion || caps.platformVersion || caps['appium:platformVersion']
+        const browserDriver = getBrowserDriver();
+        let sessionId = null;
+        if (browserDriver !== null) {
+            if (browserDriver.capabilities !== undefined) {
+                const caps = browserDriver.capabilities;
+                testCase["_Device/Browser Version"] = caps.browserVersion || caps.platformVersion || caps['appium:platformVersion']
+            }
+            if (browserDriver.sessionId !== undefined) {
+                sessionId = browserDriver.sessionId;
+            }
+        }
         let files = testFiles(this.options.files, testCase.suite, testCase.name)
         if (files.length > 0) {
             testCase.files = files
@@ -180,7 +203,7 @@ module.exports = class TesultsWorkerService {
         }
 
         // Supplemental fields
-        if (supplemental !== undefined) {
+        if (supplemental !== undefined && sessionId !== null) {
             if (supplemental[sessionId] !== undefined) {
                 let data = supplemental[sessionId][testHash(testCase)]
                 if (data !== undefined) {
@@ -199,9 +222,9 @@ module.exports = class TesultsWorkerService {
                         }
                     })
                 }
+                supplemental[sessionId].current = undefined
             }
         }
-        supplemental[sessionId].current = undefined
         this.cases.push(testCase)
     }
     
@@ -218,13 +241,16 @@ module.exports = class TesultsWorkerService {
             testCase.name = test.description
             testCase.suite = test.fullName.replace(test.description, "").trim()
         }
-        const sessionId = getBrowserDriver().sessionId;
-        if (supplemental[sessionId] === undefined) {
-            supplemental[sessionId] = {current: testHash(testCase)}
-        } else {
-            let data = supplemental[sessionId]
-            data.current = testHash(testCase)
-            supplemental[sessionId] = data
+        const browserDriver = getBrowserDriver();
+        if (browserDriver !== null && browserDriver.sessionId !== undefined) {
+            const sessionId = browserDriver.sessionId;
+            if (supplemental[sessionId] === undefined) {
+                supplemental[sessionId] = {current: testHash(testCase)}
+            } else {
+                let data = supplemental[sessionId]
+                data.current = testHash(testCase)
+                supplemental[sessionId] = data
+            }
         }
     }
 
@@ -282,9 +308,17 @@ module.exports = class TesultsWorkerService {
             }
         }
         // Support both browser (legacy) and driver (modern WDIO with Appium)
-        const caps = getBrowserDriver().capabilities;
-        const sessionId = getBrowserDriver().sessionId;
-        testCase["_Device/Browser Version"] = caps.browserVersion || caps.platformVersion || caps['appium:platformVersion']
+        const browserDriver = getBrowserDriver();
+        let sessionId = null;
+        if (browserDriver !== null) {
+            if (browserDriver.capabilities !== undefined) {
+                const caps = browserDriver.capabilities;
+                testCase["_Device/Browser Version"] = caps.browserVersion || caps.platformVersion || caps['appium:platformVersion']
+            }
+            if (browserDriver.sessionId !== undefined) {
+                sessionId = browserDriver.sessionId;
+            }
+        }
         let files = testFiles(this.options.files, test.parent, test.title)
         if (files.length > 0) {
             testCase.files = files
@@ -299,7 +333,7 @@ module.exports = class TesultsWorkerService {
         }
 
         // Supplemental fields
-        if (supplemental !== undefined) {
+        if (supplemental !== undefined && sessionId !== null) {
             if (supplemental[sessionId] !== undefined) {
                 let data = supplemental[sessionId][testHash(testCase)]
                 if (data !== undefined) {
@@ -318,9 +352,9 @@ module.exports = class TesultsWorkerService {
                         }
                     })
                 }
+                supplemental[sessionId].current = undefined
             }
         }
-        supplemental[sessionId].current = undefined
         this.cases.push(testCase)
     }
 
@@ -344,6 +378,10 @@ module.exports = class TesultsWorkerService {
             if (!browserDriver || !browserDriver.sessionId) {
                 return
             }
+            if (shared === undefined || shared.temp === undefined) {
+                console.log("wdio-tesults-service error: shared.temp is not defined")
+                return
+            }
             const sessionId = browserDriver.sessionId;
             let fileContents = JSON.stringify(this.cases)
             fs.writeFileSync(path.join(shared.temp, sessionId + ".json"), fileContents)
@@ -364,6 +402,10 @@ module.exports = class TesultsWorkerService {
             if (!browserDriver || !browserDriver.sessionId) {
                 return
             }
+            if (shared === undefined || shared.temp === undefined) {
+                console.log("wdio-tesults-service error: shared.temp is not defined")
+                return
+            }
             const sessionId = browserDriver.sessionId;
             let fileContents = JSON.stringify(this.cases)
             fs.writeFileSync(path.join(shared.temp, sessionId + ".json"), fileContents)
@@ -379,7 +421,11 @@ module.exports = class TesultsWorkerService {
      * @returns supplementalData
      */
     static getSupplementalData () {
-        const sessionId = getBrowserDriver().sessionId;
+        const browserDriver = getBrowserDriver();
+        if (browserDriver === null || browserDriver.sessionId === undefined) {
+            return undefined
+        }
+        const sessionId = browserDriver.sessionId;
         if (supplemental[sessionId] === undefined) {
             return undefined
         }
@@ -396,7 +442,11 @@ module.exports = class TesultsWorkerService {
      * @returns void
      */
     static setSupplementalData (val) {
-        const sessionId = getBrowserDriver().sessionId;
+        const browserDriver = getBrowserDriver();
+        if (browserDriver === null || browserDriver.sessionId === undefined) {
+            return undefined
+        }
+        const sessionId = browserDriver.sessionId;
         if (supplemental[sessionId] === undefined) {
             return undefined
         }
